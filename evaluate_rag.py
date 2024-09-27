@@ -10,10 +10,11 @@ from text_rag import search_knowledge_base
 load_dotenv()
 
 media_label = "Google I/O 2024"
+model_name = "gpt-4o-mini"
 media_label_path = re.sub(r'[^a-zA-Z0-9]', '_', media_label)
 
 dataset_name = f"{media_label_path}_qa_pairs"
-experiment_name = f"{media_label_path}_RAG_exp 1"
+experiment_name = f"{media_label_path}_RAG_exp 2"
 
 langfuse = Langfuse()
 
@@ -37,7 +38,7 @@ def llm_evaluation(output, expected_output):
     """
     
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model=model_name,
         messages=[
             {"role": "system", "content": "You are an AI assistant tasked with evaluating the accuracy of responses."},
             {"role": "user", "content": prompt}
@@ -63,7 +64,7 @@ def rag_query(input):
   
   generationStartTime = datetime.now()
 
-  output = search_knowledge_base(input, media_label)
+  relevant_docs, output = search_knowledge_base(input, media_label)
 
   print(output)
  
@@ -71,7 +72,7 @@ def rag_query(input):
     name=f"{media_label_path}_qa",
     input=input,
     output=output,
-    model="gpt-3.5-turbo",
+    model=model_name,
     start_time=generationStartTime,
     end_time=datetime.now()
   )

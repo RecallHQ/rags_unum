@@ -3,6 +3,7 @@ import os
 import re
 
 import openai
+import anthropic
 from dotenv import load_dotenv
 from llama_index.core import StorageContext, load_index_from_storage, SimpleDirectoryReader
 from llama_index.embeddings.openai import OpenAIEmbedding
@@ -13,6 +14,8 @@ from constants import KNOWLEDGE_BASE_PATH
 # Load environment variables
 load_dotenv()
 
+model_name = "gpt-4o-mini"
+#model_name = "claude-3-5-sonnet-20240620"
 
 def load_knowledge_base(media_label):
     # load knowledge base
@@ -36,7 +39,7 @@ def load_documents(input_data):
         
     return documents
 
-def search_knowledge_base(query, media_label):
+def search_knowledge_base(query, media_label, run_rag=True):
     print(f"Query: {query} Media label: {media_label}")
     
     media_label_path = re.sub(r'[^a-zA-Z0-9]', '_', media_label)
@@ -52,9 +55,12 @@ def search_knowledge_base(query, media_label):
     print(f"Query: {query} Media label: {media_label}")
     
     relevant_docs = retriever.retrieve(query)
-
+    
     print(f"Number of relevant documents: {len(relevant_docs)}")
     print("\n" + "="*50 + "\n")
+
+    if not run_rag:
+        return relevant_docs, index
 
     for i, doc in enumerate(relevant_docs):
         print(f"Document {i+1}:")
@@ -63,22 +69,30 @@ def search_knowledge_base(query, media_label):
         print(f"Score: {doc.score}")
         print("\n" + "="*50 + "\n")
 
-    client = openai.OpenAI()
-        
     prompt = f"""
         Given the following context, answer the question:
         {relevant_docs}
         Question: {query}
         """
-        
-    response = client.chat.completions.create(
-            model="gpt-4o-mini",
+    if model_name == "gpt-4o-mini":
+        client = openai.OpenAI()
+        response = client.chat.completions.create(
+            model=model_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.2
         )
-        
-    response_text = response.choices[0].message.content
-    return response_text
+        response_text = response.choices[0].message.content
+    elif model_name == "claude-3-5-sonnet-20240620":
+        client = anthropic.Anthropic()
+        response = client.messages.create(
+            model=model_name,
+            max_tokens=100,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2
+        )
+    else:
+        response_text = "Model not supported"
+    return relevant_docs, response_text
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run RAG on Knowledge Base.")
@@ -93,5 +107,5 @@ if __name__ == "__main__":
 
     print("Query:", args.query)
     print("Media label: ", args.media_label)
-    answer = search_knowledge_base(args.query, args.media_label)
+    relevant_docs, answer = search_knowledge_base(args.query, args.media_label)
     print(f"Answer: {answer}")
